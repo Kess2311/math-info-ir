@@ -4,71 +4,69 @@ import time
 import numpy as np
 import pandas as pd
 from math import log
+import nltk
+nltk.download('stopwords')
+nltk.download('punkt')
+from nltk.tokenize import RegexpTokenizer
+from nltk.corpus import stopwords
 
-def tf_and_idf(query_terms):
+def tf_and_idf(query):
     # read in input terms
-    input_terms = [re.split('[^a-zA-Z0-9]', word.lower())[0] for word in query_terms]
+    stop_words = set(stopwords.words('english'))
+    tokenizer = RegexpTokenizer('[^a-zA-Z0-9]', gaps=True)
+    query_tokens = tokenizer.tokenize(query)
+    input_terms = []
+    for term in query_tokens:
+        if term not in stop_words:
+            input_terms.append(term.lower())
     # tf and idf components for each term in query
     term_dict = {}
     for term in input_terms:
-        # 0 - occurrences of term
-        # - 1 - documents term appears in
-        # - 2 - titles term appears in
-        term_dict[term] = [np.zeros((2, 222)), 0, 0]
-    # words per each document array
-    doc_word_counts = np.zeros((2, 222))
-    doc_frequencies = [None] * 222
-    # loop over each index file
-    for file_name in os.listdir("index/episodes/"):
-        # grab index of file
-        file_idx = int(file_name.split("_")[0])
-        episode_title = re.split('[^a-zA-Z0-9]', titles.loc[file_idx - 1]["title"].lower())
-        open_file = f'index/episodes/{file_name}'
-        # open file and read line by line
-        words = pd.read_json(open_file, orient='split')
-        doc_word_counts[0, file_idx] = sum(words.occurrences)
-        doc_word_counts[1, file_idx] = len(episode_title)
-        selection = words[words.index.isin(input_terms)]
-        for term, row in selection.iterrows():
-            # tf value
-            term_dict[term][0][0, file_idx] = row["occurrences"]
-            # combine windows
-            # it appears in the doc
-            term_dict[term][1] += 1
+        # 0 - doc_num
+        # 1 - total_occ in doc
+        term_dict[term] = []
 
+    # open file and read line by line
+    words = pd.read_csv("../index/main.idx", sep='\t', header=None, index_col=0)
+    words = words.sort_values(by=[1], ascending=False)
+    selection = words[words.index.isin(input_terms)]
 
-
-    return input_terms, term_dict, doc_word_counts, doc_frequencies
+    return input_terms, selection
 
 
 def calculate_bm(query_terms):
-    input_terms, term_dict, doc_word_counts, doc_freq = tf_and_idf(query_terms)
-
+    input_terms, selection = tf_and_idf(query_terms)
+    doc_info_csv = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
     # only use if relevance scores for documents given a query
     ri = 0
     R = 0
     # length normalization (can be set)
-    b = 0.25
+    b = 0.75
     # k values can be changed
     # term frequency ignored at lower value and
     # term presence or absence would matter
     k_one = 1.5
     k_two = 500
     # number of documents
-    N = 221
+    N = int(doc_info_csv.loc[0][0])
 
-    bm_doc_scores = np.zeros((1, 222))
-    avdl = np.average(doc_word_counts)
-    for file_idx in range(1, 222):
-        dl = doc_word_counts[0, file_idx]
-        K = k_one * ((1 - b) + (b * (dl / avdl)))
-        bm_score = 0
-        for term_val in input_terms:
+    avdl = int(doc_info_csv.loc[0][1])
+
+    doc_score_dict = {}
+    for idx, row in doc_info_csv.iterrows():
+        doc_score_dict[row[1]] = 0
+    for term, row in selection.iterrows():
+        doc_appear_list = eval(row[1])
+        for doc in doc_appear_list:
+            split_val = doc.split(":")
+            doc_name = split_val[0]
+            dl = doc_info_csv[doc_info_csv[1] == doc_name][2].values[0]
+            K = k_one * ((1 - b) + (b * (dl / avdl)))
             # docs containing term
-            ni = term_dict[term_val][1]
+            ni = len(doc_appear_list)
             # frequency of term i
-            fi = term_dict[term_val][0][0, file_idx]
-            qfi = input_terms.count(term_val)
+            fi = int(split_val[1])
+            qfi = input_terms.count(term)
             term_one_num = (ri + 0.5) / (R - ri + 0.5)
             term_one_den = (ni - ri + 0.5) / (N - ni - R + ri + 0.5)
             term_two_num = (k_one + 1) * fi
@@ -78,64 +76,41 @@ def calculate_bm(query_terms):
             bm_i_score = log(term_one_num / term_one_den) * \
                          (term_two_num / term_two_den) * \
                          (term_three_num / term_three_den)
-            bm_score += bm_i_score
-            # add in multiplier of query terms that appear in the same window in doc
-        bm_doc_scores[0, file_idx] = bm_score
-    top_ten = bm_doc_scores[0, 1:].argsort()[-10:]
-    return top_ten, np.asarray(doc_freq[1:])[top_ten]
+            doc_score_dict[doc_name] += bm_i_score
 
-# def get_json_string(top_ten, windows=None):
-#     titles = pd.read_json("index/seasons.json", orient='records')
-#     start = -1
-#     end = -11
-#
-#     json_info = []
-#     for doc_id in range(start, end, -1):
-#         preview = [''] * 10
-#         line_num_ref = 0
-#         doc_json = {}
-#         doc_num = top_ten[doc_id]
-#         episode = titles.loc[doc_num]
-#         # build different result if BM25
-#         if is_bm:
-#             window_value = windows[doc_id].split(" ")[0]
-#             words = pd.read_json(f'index/episodes/{doc_num+1}_{episode["href"]}.json', orient='split')
-#             first_flag = True
-#             for term, row in words.iterrows():
-#                 for line_info in row["windows"]:
-#                     split_line_info = line_info.split(":")
-#                     if window_value == split_line_info[0]:
-#                         preview[int(split_line_info[1])] = term
-#                         if first_flag:
-#                             line_num_ref = split_line_info[2]
-#                             first_flag = False
-#         title = f'{episode["href"]}.html'
-#         with open(f'index/scripts/{title}', 'r') as file:
-#             data = file.read()
-#         preview = ' '.join(preview)
-#         doc_json["episode"] = episode["title"]
-#         doc_json["episodeNumber"] = str(doc_num+1)
-#         doc_json["link"] = data#f'index/scripts/{episode["href"]}.html#{line_num_ref}'
-#         doc_json["line"] = str(line_num_ref)
-#         doc_json["preview"] = preview
-#         doc_json["season"] = str(episode["season"])
-#         json_info.append(doc_json)
-#
-#
-#     return json_info
+
+    results = pd.DataFrame.from_dict(doc_score_dict, orient='index').sort_values(by=[0], ascending=False)[:10]
+
+    return results
+
+def get_json_string(top_ten):
+    title_doc = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
+
+    result = 1
+    for title, value in top_ten.iterrows():
+        ans = title_doc[title_doc[1] == title][0].values[0]
+        print(f"{result}.) {ans}\t{value.values[0]}")
+        result += 1
+
+
 
 def pick_metric(mode, query):
-    query = query.split(" ")
     if mode == 'bm25':
         start = time.time()
-        results, windows = calculate_bm(query)
+        results = calculate_bm(query)
         end = time.time()
-        print(f'BM25: Returned 10 results in {end - start:.2f}s')
-        #return get_json_string(results, True, windows)
+        print(f'Query: "{query}"\nBM25: Returned 10 results in {end - start:.2f}s')
+        get_json_string(results)
 
 
 
 
+if __name__ == "__main__":
+    pick_metric("bm25", "series")
+    pick_metric("bm25", "economic theories and models")
+    pick_metric("bm25", "when is the letter β used")
+    pick_metric("bm25", "Quantum Computing Algorithms")
+    pick_metric("bm25", "what is the hot chocolate effect")
 
 
 
