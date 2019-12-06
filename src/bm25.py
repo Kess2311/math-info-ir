@@ -11,6 +11,7 @@ from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 
 def tf_and_idf(query):
+    start = time.time()
     # read in input terms
     stop_words = set(stopwords.words('english'))
     tokenizer = RegexpTokenizer('[^a-zA-Z0-9]', gaps=True)
@@ -30,11 +31,13 @@ def tf_and_idf(query):
     words = pd.read_csv("../index/main.idx", sep='\t', header=None, index_col=0)
     words = words.sort_values(by=[1], ascending=False)
     selection = words[words.index.isin(input_terms)]
-
+    end = time.time()
+    print(f'tf&idf: {end - start}')
     return input_terms, selection
 
 
 def calculate_bm(query_terms):
+    start = time.time()
     input_terms, selection = tf_and_idf(query_terms)
     doc_info_csv = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
     # only use if relevance scores for documents given a query
@@ -52,9 +55,10 @@ def calculate_bm(query_terms):
 
     avdl = int(doc_info_csv.loc[0][1])
 
+    # TODO make dict with title -> score
+    # send to Pandas and sort
+
     doc_score_dict = {}
-    for idx, row in doc_info_csv.iterrows():
-        doc_score_dict[row[1]] = 0
     for term, row in selection.iterrows():
         doc_appear_list = eval(row[1])
         for doc in doc_appear_list:
@@ -76,11 +80,15 @@ def calculate_bm(query_terms):
             bm_i_score = log(term_one_num / term_one_den) * \
                          (term_two_num / term_two_den) * \
                          (term_three_num / term_three_den)
-            doc_score_dict[doc_name] += bm_i_score
+            if doc_name in doc_score_dict.keys():
+                doc_score_dict[doc_name] += bm_i_score
+            else:
+                doc_score_dict[doc_name] = bm_i_score
 
 
     results = pd.DataFrame.from_dict(doc_score_dict, orient='index').sort_values(by=[0], ascending=False)[:10]
-
+    end = time.time()
+    print(f'bm25: {end-start}')
     return results
 
 def get_json_string(top_ten):
@@ -89,7 +97,7 @@ def get_json_string(top_ten):
     result = 1
     for title, value in top_ten.iterrows():
         ans = title_doc[title_doc[1] == title][0].values[0]
-        print(f"{result}.) {ans}\t{value.values[0]}")
+        print(f"{result}.) {ans}\t{title}\t{value.values[0]}")
         result += 1
 
 
@@ -106,11 +114,11 @@ def pick_metric(mode, query):
 
 
 if __name__ == "__main__":
-    pick_metric("bm25", "series")
-    pick_metric("bm25", "economic theories and models")
-    pick_metric("bm25", "when is the letter β used")
-    pick_metric("bm25", "Quantum Computing Algorithms")
-    pick_metric("bm25", "what is the hot chocolate effect")
+    #pick_metric("bm25", "series")
+    #pick_metric("bm25", "economic theories and models")
+    pick_metric("bm25", "Trying to find more information on Lucas Numbers or formulas or something about sequences")
+    #pick_metric("bm25", "Quantum Computing Algorithms")
+    #pick_metric("bm25", "what is the hot chocolate effect")
 
 
 
