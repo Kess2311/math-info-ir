@@ -1,0 +1,30 @@
+series
+economic theories and models
+Trying to find more information on Lucas Numbers or formulas or something about sequences
+Quantum Computing Algorithms
+what is the hot chocolate effect
+Chomsky
+What is hashing
+Construction of an Irreducible Markov Chain in Ising Model
+A negative potential energy indicates a bound state due to an attractive force
+How does an RBM differ from a normal ANN
+scattering amplitude
+theorems for complete graphs
+RSA how is λ used
+test if a number is prime
+when was python created
+Nash equilibrium
+Chebyshev distance
+How do you calculate mel frequency cepstral coefficient
+Eigenvalue of a mobius strip
+derivative of sin
+what is integration
+Value of e
+How do logarithms work
+Factors of x^2 - 4
+rubik cube
+calculating the volume of 3d solids
+when to use radians vs degrees
+how to write formulas using LaTex
+group theory
+what are some functions that rely on idempotency to work

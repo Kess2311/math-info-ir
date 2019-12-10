@@ -69,9 +69,11 @@ def make_indices():
             with open(f'../index/{directory}', 'w+', encoding='utf-8') as index_file:
                 for word, file_iden_dict in file_dict.items():
                     second_col = []
+                    total_occ = 0
                     for file_name_off, count in file_iden_dict.items():
                         second_col.append(f'{file_name_off}:{count}')
-                    index_file.write(f'{word}\t{second_col}\n')
+                        total_occ += count
+                    index_file.write(f'{word}\t{total_occ}\t{second_col}\n')
 
     avg_doc_length = math.floor(total_words/total_docs)
     with open(f'../index/doc_info.idx', 'w+', encoding='utf-8') as doc_file:
@@ -83,9 +85,11 @@ def make_indices():
     with open(f'../index/main.idx', 'w+', encoding='utf-8') as index_file:
         for word, file_iden_dict in file_dict.items():
             second_col = []
+            total_occ = 0
             for file_name_off, count in file_iden_dict.items():
                 second_col.append(f'{file_name_off}:{count}')
-            index_file.write(f'{word}\t{second_col}\n')
+                total_occ += count
+            index_file.write(f'{word}\t{total_occ}\t{second_col}\n')
     end = time.time()
     # TODO delete sub index files so they dont take up space
     print(f"\nCompleted Walkthrough of data directory!: {end - start:.2f}s")

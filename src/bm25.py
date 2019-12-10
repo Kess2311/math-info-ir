@@ -9,6 +9,7 @@ nltk.download('stopwords')
 nltk.download('punkt')
 from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
+from src.ltr_system import prob_word_doc
 
 def tf_and_idf(query):
     start = time.time()
@@ -20,24 +21,17 @@ def tf_and_idf(query):
     for term in query_tokens:
         if term not in stop_words:
             input_terms.append(term.lower())
-    # tf and idf components for each term in query
-    term_dict = {}
-    for term in input_terms:
-        # 0 - doc_num
-        # 1 - total_occ in doc
-        term_dict[term] = []
 
     # open file and read line by line
     words = pd.read_csv("../index/main.idx", sep='\t', header=None, index_col=0)
     words = words.sort_values(by=[1], ascending=False)
     selection = words[words.index.isin(input_terms)]
     end = time.time()
-    print(f'tf&idf: {end - start}')
+    print(f'tf&idf: {end - start:.2f}s')
     return input_terms, selection
 
 
 def calculate_bm(query_terms):
-    start = time.time()
     input_terms, selection = tf_and_idf(query_terms)
     doc_info_csv = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
     # only use if relevance scores for documents given a query
@@ -60,7 +54,7 @@ def calculate_bm(query_terms):
 
     doc_score_dict = {}
     for term, row in selection.iterrows():
-        doc_appear_list = eval(row[1])
+        doc_appear_list = eval(row[2])
         for doc in doc_appear_list:
             split_val = doc.split(":")
             doc_name = split_val[0]
@@ -87,8 +81,6 @@ def calculate_bm(query_terms):
 
 
     results = pd.DataFrame.from_dict(doc_score_dict, orient='index').sort_values(by=[0], ascending=False)[:10]
-    end = time.time()
-    print(f'bm25: {end-start}')
     return results
 
 def get_json_string(top_ten):
@@ -100,37 +92,42 @@ def get_json_string(top_ten):
         print(f"{result}.) {ans}\t{title}\t{value.values[0]}")
         result += 1
 
+def output_qrels(query_num, method, top_ten, mu=None):
+    rank = 1
+    if mu:
+        file_name = f'../results/q{query_num}_{method}_{mu}.results'
+    else:
+        file_name = f'../results/q{query_num}_{method}.results'
+    with open(file_name, 'w+') as qrel_file:
+        for title, value in top_ten.iterrows():
+            qrel_file.write(f'{query_num}\tQ0\t{title}\t{rank}\t{value.values[0]}\tdefault\n')
+            rank += 1
 
 
-def pick_metric(mode, query):
+def pick_metric(mode, query, query_num):
     if mode == 'bm25':
         start = time.time()
         results = calculate_bm(query)
         end = time.time()
         print(f'Query: "{query}"\nBM25: Returned 10 results in {end - start:.2f}s')
-        get_json_string(results)
-
-
-
-
-if __name__ == "__main__":
-    #pick_metric("bm25", "series")
-    #pick_metric("bm25", "economic theories and models")
-    pick_metric("bm25", "Trying to find more information on Lucas Numbers or formulas or something about sequences")
-    #pick_metric("bm25", "Quantum Computing Algorithms")
-    #pick_metric("bm25", "what is the hot chocolate effect")
-
-
-
-
-
-
-
-
-
-def main():
-    pass
+        #get_json_string(results)
+        output_qrels(query_num, 'bm25', results)
+    elif mode == 'qlds':
+        mu_vals = [850, 950, 1050, 1150, 1250, 1350, 1450, 1550, 1650, 1750, 1850, 1950, 2050]
+        for mu_val in mu_vals:
+            start = time.time()
+            _, selection = tf_and_idf(query)
+            results = prob_word_doc(selection, mu_val)
+            end = time.time()
+            print(f'Query: "{query}"\nQuery Likelihood with Dirichlet Smoothing: Returned 10 results in {end - start:.2f}s')
+            #get_json_string(results)
+            output_qrels(query_num, 'qlds', results, mu_val)
 
 
 if __name__ == "__main__":
-    main()
+    query_num = 1
+    with open('../data/queries/queries.txt', 'r') as query_file:
+        for query in query_file:
+            pick_metric("bm25", query, query_num)
+            pick_metric('qlds', query, query_num)
+            query_num += 1
