@@ -4,6 +4,7 @@ from tqdm import tqdm
 import time
 import nltk
 import math
+
 nltk.download('stopwords')
 nltk.download('punkt')
 from bs4 import BeautifulSoup
@@ -18,6 +19,7 @@ def make_indices():
     start = time.time()
     file_dict = {}
     doc_dict = {}
+    offset_dict = {}
     total_docs = 0
     total_words = 0
     for subdir, dirs, file_names in os.walk('../data/'):
@@ -28,6 +30,10 @@ def make_indices():
                 try:
                     with open(f'../data/{directory}/{file_name}', 'r', encoding='utf-8') as html_file:
                         dir_num = int(directory[-2:])
+                        if dir_num in offset_dict.keys():
+                            offset_dict[dir_num] += 1
+                        else:
+                            offset_dict[dir_num] = 1
                         html_in = BeautifulSoup(html_file, 'html.parser', from_encoding='utf-8')
                         offset = html_in.find_all('title')[0].attrs["offset"]
                         file_identifier = f'{dir_num}-{offset}'
@@ -70,21 +76,45 @@ def make_indices():
                 for word, file_iden_dict in file_dict.items():
                     second_col = []
                     for file_name_off, count in file_iden_dict.items():
-                        second_col.append(f'{file_name_off}:{count}')
+                        total_offset = 0
+                        file_split = file_name_off.split("-")
+                        folder = int(file_split[0])-1
+                        doc_id = int(file_split[1])
+                        if folder > 0:
+                            while folder > 0:
+                                total_offset += offset_dict[folder]
+                                folder -= 1
+                        delta_encode = doc_id + total_offset
+                        second_col.append(f'{delta_encode}:{count}')
+                    second_col.sort(key=lambda x: int(x.split(":")[0]))
                     index_file.write(f'{word}\t{second_col}\n')
 
-    avg_doc_length = math.floor(total_words/total_docs)
+    avg_doc_length = math.floor(total_words / total_docs)
     with open(f'../index/doc_info.idx', 'w+', encoding='utf-8') as doc_file:
         doc_file.write(f'{total_docs}\t{avg_doc_length}\t0\n')
         for doc_file_name, count in doc_dict.items():
             # offset, filename, word count
             doc_file.write(f'{doc_file_name}\t{count[0]}\t{count[1]}\n')
 
+    with open(f'../index/folder_info.idx', 'w+', encoding='utf-8') as folder_info:
+        for folder_id, count in offset_dict.items():
+            folder_info.write(f'{folder_id}\t{count}')
+
     with open(f'../index/main.idx', 'w+', encoding='utf-8') as index_file:
         for word, file_iden_dict in file_dict.items():
             second_col = []
             for file_name_off, count in file_iden_dict.items():
-                second_col.append(f'{file_name_off}:{count}')
+                total_offset = 0
+                file_split = file_name_off.split("-")
+                folder = int(file_split[0]) - 1
+                doc_id = int(file_split[1])
+                if folder > 0:
+                    while folder > 0:
+                        total_offset += offset_dict[folder]
+                        folder -= 1
+                delta_encode = doc_id + total_offset
+                second_col.append(f'{delta_encode}:{count}')
+            second_col.sort(key=lambda x: int(x.split(":")[0]))
             index_file.write(f'{word}\t{second_col}\n')
     end = time.time()
     # TODO delete sub index files so they dont take up space
