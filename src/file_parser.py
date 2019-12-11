@@ -59,6 +59,8 @@ def make_indices():
                                     if lower in file_dict.keys():
                                         if file_identifier in file_dict[lower].keys():
                                             file_dict[lower][file_identifier] += 1
+
+
                                         else:
                                             file_dict[lower][file_identifier] = 1
                                     else:
@@ -101,6 +103,7 @@ def make_indices():
                         second_col.sort(key=lambda x: int(x.split(":")[0]))
                         index_file.write(f'{word}\t{total_occ}\t{second_col}\n')
 
+
     avg_doc_length = math.floor(total_words / total_docs)
     with open(f'../index/doc_info.idx', 'w+', encoding='utf-8') as doc_file:
         doc_file.write(f'{total_docs}\t{avg_doc_length}\t0\n')
@@ -117,6 +120,7 @@ def make_indices():
             second_col = []
             total_occ = 0
             for file_name_off, count in file_iden_dict.items():
+
                 total_occ += count
                 total_offset = 0
                 file_split = file_name_off.split("-")
