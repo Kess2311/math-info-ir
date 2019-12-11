@@ -4,6 +4,7 @@ from tqdm import tqdm
 import time
 import nltk
 import math
+import re
 nltk.download('stopwords')
 nltk.download('punkt')
 from bs4 import BeautifulSoup
@@ -23,57 +24,59 @@ def make_indices():
     for subdir, dirs, file_names in os.walk('../data/'):
         print(f"Processing subdirectory: {subdir}")
         directory = subdir.split("/")[2]
-        for file_name in tqdm(file_names):
-            if file_name.endswith('.html'):
-                try:
-                    with open(f'../data/{directory}/{file_name}', 'r', encoding='utf-8') as html_file:
-                        dir_num = int(directory[-2:])
-                        html_in = BeautifulSoup(html_file, 'html.parser', from_encoding='utf-8')
-                        offset = html_in.find_all('title')[0].attrs["offset"]
-                        file_identifier = f'{dir_num}-{offset}'
-                        text = html_in.contents[0].get_text()
-                        nltk_tokenized = tokenizer.tokenize(text)
-                        doc_length = len(nltk_tokenized)
-                        total_words += doc_length
-                        doc_dict[file_name] = [file_identifier, doc_length]
-                        total_docs += 1
-                        # tokenize all words with a regex tokenizer and lower case
-                        for word in nltk_tokenized:
-                            lower = word.lower()
-                            if lower not in stop_words:
-                                if lower in file_dict.keys():
-                                    if file_identifier in file_dict[lower].keys():
-                                        file_dict[lower][file_identifier] += 1
-                                    else:
-                                        file_dict[lower][file_identifier] = 1
-                                else:
-                                    file_dict[lower] = {file_identifier: 1}
-                        math_tags = html_in.find_all("math")
-                        # run through all math equation tokens without modifying
-                        for tag in math_tags:
-                            text = word_tokenize(tag.get_text())
-                            for word in text:
-                                if word not in stop_words:
-                                    if word in file_dict.keys():
-                                        if file_identifier in file_dict[word].keys():
-                                            file_dict[word][file_identifier] += 1
+        if not re.match("../data/queries/*", subdir) and directory != '':
+            # get the current
+            dir_num = int(directory[-2:])
+            for file_name in tqdm(file_names):
+                if file_name.endswith('.html'):
+                    try:
+                        with open(f'../data/{directory}/{file_name}', 'r', encoding='utf-8') as html_file:
+                            html_in = BeautifulSoup(html_file, 'html.parser', from_encoding='utf-8')
+                            offset = html_in.find_all('title')[0].attrs["offset"]
+                            file_identifier = f'{dir_num}-{offset}'
+                            text = html_in.contents[0].get_text()
+                            nltk_tokenized = tokenizer.tokenize(text)
+                            doc_length = len(nltk_tokenized)
+                            total_words += doc_length
+                            doc_dict[file_name] = [file_identifier, doc_length]
+                            total_docs += 1
+                            # tokenize all words with a regex tokenizer and lower case
+                            for word in nltk_tokenized:
+                                lower = word.lower()
+                                if lower not in stop_words:
+                                    if lower in file_dict.keys():
+                                        if file_identifier in file_dict[lower].keys():
+                                            file_dict[lower][file_identifier] += 1
                                         else:
-                                            file_dict[word][file_identifier] = 1
+                                            file_dict[lower][file_identifier] = 1
                                     else:
-                                        file_dict[word] = {file_identifier: 1}
-                except FileNotFoundError:
-                    print(f'File {file_name} not found. Skipping')
-                    continue
-        if subdir != "../data/":
-            # save all sub index files in case of error during indexing
-            with open(f'../index/{directory}', 'w+', encoding='utf-8') as index_file:
-                for word, file_iden_dict in file_dict.items():
-                    second_col = []
-                    total_occ = 0
-                    for file_name_off, count in file_iden_dict.items():
-                        second_col.append(f'{file_name_off}:{count}')
-                        total_occ += count
-                    index_file.write(f'{word}\t{total_occ}\t{second_col}\n')
+                                        file_dict[lower] = {file_identifier: 1}
+                            math_tags = html_in.find_all("math")
+                            # run through all math equation tokens without modifying
+                            for tag in math_tags:
+                                text = word_tokenize(tag.get_text())
+                                for word in text:
+                                    if word not in stop_words:
+                                        if word in file_dict.keys():
+                                            if file_identifier in file_dict[word].keys():
+                                                file_dict[word][file_identifier] += 1
+                                            else:
+                                                file_dict[word][file_identifier] = 1
+                                        else:
+                                            file_dict[word] = {file_identifier: 1}
+                    except FileNotFoundError:
+                        print(f'File {file_name} not found. Skipping')
+                        continue
+            if subdir != "../data/":
+                # save all sub index files in case of error during indexing
+                with open(f'../index/{directory}', 'w+', encoding='utf-8') as index_file:
+                    for word, file_iden_dict in file_dict.items():
+                        second_col = []
+                        total_occ = 0
+                        for file_name_off, count in file_iden_dict.items():
+                            second_col.append(f'{file_name_off}:{count}')
+                            total_occ += count
+                        index_file.write(f'{word}\t{total_occ}\t{second_col}\n')
 
     avg_doc_length = math.floor(total_words/total_docs)
     with open(f'../index/doc_info.idx', 'w+', encoding='utf-8') as doc_file:

@@ -4,6 +4,9 @@ from math import log
 # TODO find same set between all three, if over 10, calculate that
 
 
+
+
+
 def prob_word_doc(selection, mu_val_set):
     doc_info_csv = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
     # between 0-1
@@ -41,5 +44,5 @@ def prob_word_doc(selection, mu_val_set):
                 doc_score_dict[doc_name] = log(numerator/denominator)
 
     results = pd.DataFrame.from_dict(doc_score_dict, orient='index')
-    x_row = results.sort_values(by=[0], ascending=True)[:10]
+    x_row = results.sort_values(by=[0], ascending=False)[:10]
     return x_row

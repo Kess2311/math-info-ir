@@ -110,22 +110,23 @@ def pick_metric(mode, query, query_num):
         results = calculate_bm(query)
         end = time.time()
         print(f'Query: "{query}"\nBM25: Returned 10 results in {end - start:.2f}s')
-        #get_json_string(results)
+        get_json_string(results)
         output_qrels(query_num, 'bm25', results)
     elif mode == 'qlds':
-        mu_vals = [850, 950, 1050, 1150, 1250, 1350, 1450, 1550, 1650, 1750, 1850, 1950, 2050]
+        mu_vals = [1500, 2000, 5000, 7000, 10000, 15000, 20000, 25000, 30000]
         for mu_val in mu_vals:
             start = time.time()
-            _, selection = tf_and_idf(query)
+            returned_query, selection = tf_and_idf(query)
             results = prob_word_doc(selection, mu_val)
             end = time.time()
-            print(f'Query: "{query}"\nQuery Likelihood with Dirichlet Smoothing: Returned 10 results in {end - start:.2f}s')
-            #get_json_string(results)
+            print(f'Query: "{query}"\n\tTokenized as: {returned_query}\n\tMU_VAL: {mu_val}\nQuery Likelihood with Dirichlet Smoothing: Returned 10 results in {end - start:.2f}s')
+            get_json_string(results)
             output_qrels(query_num, 'qlds', results, mu_val)
 
 
 if __name__ == "__main__":
     query_num = 1
+
     with open('../data/queries/queries.txt', 'r') as query_file:
         for query in query_file:
             pick_metric("bm25", query, query_num)
