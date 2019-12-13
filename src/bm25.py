@@ -23,7 +23,6 @@ def get_words(query):
 
     # open file and read line by line
     words = pd.read_csv("../index/main.idx", sep='\t', header=None, index_col=0)
-    words = words.sort_values(by=[1], ascending=False)
     selection = words[words.index.isin(input_terms)]
     return input_terms, selection
 
@@ -127,3 +126,4 @@ if __name__ == "__main__":
             pick_metric("bm25", query, query_num)
             pick_metric('qlds', query, query_num)
             query_num += 1
+            
