@@ -11,8 +11,7 @@ from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from src.ltr_system import prob_word_doc
 
-def tf_and_idf(query):
-    start = time.time()
+def get_words(query):
     # read in input terms
     stop_words = set(stopwords.words('english'))
     tokenizer = RegexpTokenizer('[^a-zA-Z0-9]', gaps=True)
@@ -26,13 +25,11 @@ def tf_and_idf(query):
     words = pd.read_csv("../index/main.idx", sep='\t', header=None, index_col=0)
     words = words.sort_values(by=[1], ascending=False)
     selection = words[words.index.isin(input_terms)]
-    end = time.time()
-    print(f'tf&idf: {end - start:.2f}s')
     return input_terms, selection
 
 
 def calculate_bm(query_terms):
-    input_terms, selection = tf_and_idf(query_terms)
+    input_terms, selection = get_words(query_terms)
     doc_info_csv = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
     # only use if relevance scores for documents given a query
     ri = 0
@@ -54,16 +51,14 @@ def calculate_bm(query_terms):
 
     doc_score_dict = {}
     for term, row in selection.iterrows():
-        doc_appear_list = eval(row[2])
-        for doc in doc_appear_list:
-            split_val = doc.split(":")
-            doc_name = split_val[0]
-            dl = doc_info_csv[doc_info_csv[1] == doc_name][2].values[0]
+        doc_appear_list = dict(zip(eval(row[2][10:-1]), eval(row[3][12:-1])))
+        for doc in doc_appear_list.keys():
+            dl = doc_info_csv[doc_info_csv[1] == doc][2].values[0]
             K = k_one * ((1 - b) + (b * (dl / avdl)))
             # docs containing term
             ni = len(doc_appear_list)
             # frequency of term i
-            fi = int(split_val[1])
+            fi = doc_appear_list[doc]
             qfi = input_terms.count(term)
             term_one_num = (ri + 0.5) / (R - ri + 0.5)
             term_one_den = (ni - ri + 0.5) / (N - ni - R + ri + 0.5)
@@ -74,10 +69,10 @@ def calculate_bm(query_terms):
             bm_i_score = log(term_one_num / term_one_den) * \
                          (term_two_num / term_two_den) * \
                          (term_three_num / term_three_den)
-            if doc_name in doc_score_dict.keys():
-                doc_score_dict[doc_name] += bm_i_score
+            if doc in doc_score_dict.keys():
+                doc_score_dict[doc] += bm_i_score
             else:
-                doc_score_dict[doc_name] = bm_i_score
+                doc_score_dict[doc] = bm_i_score
 
 
     results = pd.DataFrame.from_dict(doc_score_dict, orient='index').sort_values(by=[0], ascending=False)[:10]
@@ -113,10 +108,10 @@ def pick_metric(mode, query, query_num):
         get_json_string(results)
         output_qrels(query_num, 'bm25', results)
     elif mode == 'qlds':
-        mu_vals = [1500, 2000, 5000, 7000, 10000, 15000, 20000, 25000, 30000]
+        mu_vals = [350]
         for mu_val in mu_vals:
             start = time.time()
-            returned_query, selection = tf_and_idf(query)
+            returned_query, selection = get_words(query)
             results = prob_word_doc(selection, mu_val)
             end = time.time()
             print(f'Query: "{query}"\n\tTokenized as: {returned_query}\n\tMU_VAL: {mu_val}\nQuery Likelihood with Dirichlet Smoothing: Returned 10 results in {end - start:.2f}s')

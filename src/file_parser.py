@@ -12,6 +12,18 @@ from nltk.tokenize import RegexpTokenizer, word_tokenize
 from nltk.corpus import stopwords
 
 
+def make_zero_doc_file():
+    # todo will need to update folder location
+    score_dict = {}
+    files_df = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
+    for title, row in files_df[1:].iterrows():
+        score_dict[row[1]] = 0
+
+    scores_df = pd.DataFrame.from_dict(score_dict, orient='index')
+    scores_df.to_csv('../index/scores.idx', sep='\t', header=None)
+
+
+
 def make_indices():
     # todo will need to update folder location
     stop_words = set(stopwords.words('english'))
@@ -67,16 +79,7 @@ def make_indices():
                     except FileNotFoundError:
                         print(f'File {file_name} not found. Skipping')
                         continue
-            if subdir != "../data/":
-                # save all sub index files in case of error during indexing
-                with open(f'../index/{directory}', 'w+', encoding='utf-8') as index_file:
-                    for word, file_iden_dict in file_dict.items():
-                        second_col = []
-                        total_occ = 0
-                        for file_name_off, count in file_iden_dict.items():
-                            second_col.append(f'{file_name_off}:{count}')
-                            total_occ += count
-                        index_file.write(f'{word}\t{total_occ}\t{second_col}\n')
+
 
     avg_doc_length = math.floor(total_words/total_docs)
     with open(f'../index/doc_info.idx', 'w+', encoding='utf-8') as doc_file:
@@ -87,14 +90,10 @@ def make_indices():
 
     with open(f'../index/main.idx', 'w+', encoding='utf-8') as index_file:
         for word, file_iden_dict in file_dict.items():
-            second_col = []
-            total_occ = 0
-            for file_name_off, count in file_iden_dict.items():
-                second_col.append(f'{file_name_off}:{count}')
-                total_occ += count
-            index_file.write(f'{word}\t{total_occ}\t{second_col}\n')
+            total_occ = sum(file_iden_dict.values())
+            index_file.write(f'{word}\t{total_occ}\t{file_iden_dict.keys()}\t{file_iden_dict.values()}\n')
+    make_zero_doc_file()
     end = time.time()
-    # TODO delete sub index files so they dont take up space
     print(f"\nCompleted Walkthrough of data directory!: {end - start:.2f}s")
 
 
