@@ -11,8 +11,7 @@ from nltk.tokenize import RegexpTokenizer
 from nltk.corpus import stopwords
 from src.ltr_system import prob_word_doc
 
-def tf_and_idf(query):
-    start = time.time()
+def get_words(query):
     # read in input terms
     stop_words = set(stopwords.words('english'))
     tokenizer = RegexpTokenizer('[^a-zA-Z0-9]', gaps=True)
@@ -26,13 +25,11 @@ def tf_and_idf(query):
     words = pd.read_csv("../index/main.idx", sep='\t', header=None, index_col=0)
     words = words.sort_values(by=[1], ascending=False)
     selection = words[words.index.isin(input_terms)]
-    end = time.time()
-    print(f'tf&idf: {end - start:.2f}s')
     return input_terms, selection
 
 
 def calculate_bm(query_terms):
-    input_terms, selection = tf_and_idf(query_terms)
+    input_terms, selection = get_words(query_terms)
     doc_info_csv = pd.read_csv("../index/doc_info.idx", sep='\t', header=None)
     # only use if relevance scores for documents given a query
     ri = 0
@@ -111,18 +108,19 @@ def pick_metric(mode, query, query_num):
         get_json_string(results)
         output_qrels(query_num, 'bm25', results)
     elif mode == 'qlds':
-        mu_val = 3500
-        start = time.time()
-        returned_query, selection = tf_and_idf(query)
-        results = prob_word_doc(selection, mu_val)
-        end = time.time()
-        print(f'Query: "{query}"\n\tTokenized as: {returned_query}\n\tMU_VAL: {mu_val}\nQuery Likelihood with Dirichlet Smoothing: Returned 10 results in {end - start:.2f}s')
-        get_json_string(results)
-        output_qrels(query_num, 'qlds', results, mu_val)
+        mu_vals = [350]
+        for mu_val in mu_vals:
+            start = time.time()
+            returned_query, selection = get_words(query)
+            results = prob_word_doc(selection, mu_val)
+            end = time.time()
+            print(f'Query: "{query}"\n\tTokenized as: {returned_query}\n\tMU_VAL: {mu_val}\nQuery Likelihood with Dirichlet Smoothing: Returned 10 results in {end - start:.2f}s')
+            get_json_string(results)
+            output_qrels(query_num, 'qlds', results, mu_val)
 
 
 if __name__ == "__main__":
-    query_num = 31
+    query_num = 1
 
     with open('../data/queries/queries.txt', 'r') as query_file:
         for query in query_file:

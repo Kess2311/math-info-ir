@@ -5,14 +5,12 @@ import time
 # TODO find same set between all three, if over 10, calculate that
 
 def merge_lists(selection):
-    start = time.time()
     file_to_word_df = pd.read_csv('../index/scores.idx', sep='\t', header=None).set_index(0, drop=True)
     file_to_word = file_to_word_df[1].to_dict()
     for term, row in selection.iterrows():
         appear_list = eval(row[2][10:-1])
         for doc_id in appear_list:
             file_to_word[doc_id] += 1
-    print(f'It took {time.time()-start:.2f}s to merge')
     return pd.DataFrame.from_dict(file_to_word, orient='index').sort_values(by=[0], ascending=False)[:5000]
 
 def prob_word_doc(selection, mu_val_set):
